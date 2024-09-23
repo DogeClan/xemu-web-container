@@ -36,6 +36,8 @@ RUN apt-get update && \
     libpulse-dev \
     libasound2-dev \
     libudev-dev \
+    slirp \
+    pkg-config \
     libxmu-dev \
     libxi-dev \
     novnc \
