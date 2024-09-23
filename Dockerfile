@@ -39,6 +39,7 @@ RUN apt-get update && \
     libxmu-dev \
     libxi-dev \
     novnc \
+    ninja-build \
     websockify \
     && apt-get clean
 
