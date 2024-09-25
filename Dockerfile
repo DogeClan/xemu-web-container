@@ -1,17 +1,16 @@
-# Use an official Ubuntu image as a base
-FROM ubuntu:20.04
+# Use an official Debian image as a base
+FROM debian:bullseye-slim
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install required packages for building xemu
+# Install required packages, including Xvfb for headless execution
 RUN apt-get update && apt-get install -y \
     git \
     build-essential \
     libsdl2-dev \
     libepoxy-dev \
     libpixman-1-dev \
-    libgtk-3-dev \
     libssl-dev \
     libsamplerate0-dev \
     libpcap-dev \
@@ -20,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     libslirp-dev \
     novnc \
     websockify \
+    xvfb \  # Install Xvfb for running GUI apps in headless mode
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -36,5 +36,5 @@ VOLUME ["/xemu"]
 # Run the build script
 RUN ./build.sh
 
-# Set the entry point (optional, you can modify this as needed)
-CMD ["sh", "-c", "./dist/xemu -vnc :0 & websockify --web=/usr/share/novnc 6080 localhost:5900"]
+# Set the entry point to run Xvfb and xemu in headless mode
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1024x768x16 & DISPLAY=:99 ./dist/xemu -vnc :0 & websockify --web=/usr/share/novnc 6080 localhost:5900"]
