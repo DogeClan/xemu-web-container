@@ -5,7 +5,7 @@ FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install required packages for building xemu
-RUN 
+RUN apt-get update && apt-get install -y \
 git \
 build-essential \
 libsdl2-dev \
@@ -28,6 +28,9 @@ RUN git clone --recurse-submodules https://github.com/xemu-project/xemu.git /xem
 
 # Set the working directory
 WORKDIR /xemu
+
+# Create a persistent volume for the xemu data
+VOLUME /xemu
 
 # Run the build script
 RUN ./build.sh
