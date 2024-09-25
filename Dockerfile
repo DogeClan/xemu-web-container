@@ -7,6 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install required packages, including Xvfb for headless execution
 RUN apt-get update && apt-get install -y \
     git \
+    libgtk-3-dev \
     build-essential \
     libsdl2-dev \
     libepoxy-dev \
@@ -19,7 +20,7 @@ RUN apt-get update && apt-get install -y \
     libslirp-dev \
     novnc \
     websockify \
-    xvfb \  # Install Xvfb for running GUI apps in headless mode
+    xvfb \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
