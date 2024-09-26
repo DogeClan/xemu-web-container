@@ -57,7 +57,7 @@ RUN git clone https://github.com/mborgerson/xemu.git /opt/xemu && \
 
 # Download and unzip XEMU files
 RUN wget -O /tmp/XEMU_FILES.zip https://ia904501.us.archive.org/1/items/xemustarter/XEMU%20FILES.zip && \
-    unzip -d /opt/xemu/bios/ /tmp/XEMU_FILES.zip && \
+    unzip -d $XEMU_BIOS_PATH /tmp/XEMU_FILES.zip && \
     rm /tmp/XEMU_FILES.zip
 
 # Setup a virtual framebuffer for headless operation
