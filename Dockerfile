@@ -1,64 +1,71 @@
-# Use an official Debian image as a base
-FROM debian:bullseye-slim
+# Base image
+FROM debian:latest
 
-# Set environment variables
-ENV DEBIAN_FRONTEND=noninteractive \
-    DISPLAY=:99 \
-    PULSE_SERVER=unix:/tmp/pulseaudio.socket
+# Environment Variables
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Install required packages, including Xvfb, VirtualGL, and x11vnc for headless execution
+# Install essential tools and libraries
 RUN apt-get update && apt-get install -y \
     git \
-    libgtk-3-dev \
     build-essential \
     libsdl2-dev \
     libepoxy-dev \
     libpixman-1-dev \
+    libgtk-3-dev \
     libssl-dev \
     libsamplerate0-dev \
     libpcap-dev \
     ninja-build \
     python3-yaml \
     libslirp-dev \
-    novnc \
-    websockify \
+    libx11-dev \
+    libxcursor-dev \
+    libxrandr-dev \
+    libxi-dev \
+    libgl1-mesa-dev \
+    libgles2-mesa-dev \
+    x11-xserver-utils \
+    xorg \
     xvfb \
-    x11vnc \
-    pulseaudio \
-    alsa-utils \
-    mesa-utils \
-    virtualgl \
-    && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    tigervnc-standalone-server \
+    websockify \
+    python3-pip \
+    unzip \
+    curl \
+    sudo \
+    && apt-get clean
 
-# Clone the xemu repository from GitHub
-RUN git clone --recurse-submodules https://github.com/xemu-project/xemu.git /xemu
+# Install noVNC
+RUN git clone https://github.com/novnc/noVNC.git /opt/noVNC && \
+    cd /opt/noVNC && \
+    git checkout v1.2.0 && \
+    ln -s vnc_lite.html index.html
 
-# Set the working directory
-WORKDIR /xemu
+# Install WebSockify
+RUN git clone https://github.com/novnc/websockify /opt/websockify && \
+    cd /opt/websockify && \
+    python3 setup.py install
 
-# Create persistent volumes for xemu data and config
-VOLUME ["/root/.local/share/xemu", "/xemu"]
+# Clone and build xemu
+RUN git clone https://github.com/mborgerson/xemu.git /opt/xemu && \
+    cd /opt/xemu && \
+    ./build.sh
 
-# Run the build script
-RUN ./build.sh
+# Setup a virtual framebuffer for headless operation
+RUN apt-get install -y xvfb && \
+    mkdir -p /var/run/xvfb
 
-# Set permissions on xemu folder
-RUN chown -R root:root /root/.local/share/xemu /xemu
+# Create a startup script
+RUN echo '#!/bin/bash\n\
+Xvfb :99 -screen 0 1280x800x24 &\n\
+export DISPLAY=:99\n\
+/opt/websockify/run 5900 localhost:5901 &\n\
+/opt/noVNC/utils/launch.sh --vnc localhost:5900 &\n\
+/opt/xemu/dist/xemu' > /usr/local/bin/start-xemu && \
+    chmod +x /usr/local/bin/start-xemu
 
-# Install Tini as an init system to handle process management
-RUN apt-get update && apt-get install -y tini && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Expose noVNC port
+EXPOSE 6080
 
-# Expose Render's web app port (10000)
-EXPOSE 10000
-
-# Use Tini as the entry point
-ENTRYPOINT ["/usr/bin/tini", "--"]
-
-# Set the entry point to run Xvfb, VirtualGL, x11vnc, xemu, and websockify in headless mode with audio and OpenGL acceleration
-CMD ["sh", "-c", "\
-    pulseaudio --start --exit-idle-time=-1 & \
-    Xvfb :99 -screen 0 1280x1024x24 +extension GLX +render -noreset & \
-    vglrun ./dist/xemu & \
-    x11vnc -display :99 -nopw -forever -rfbport 5900 & \
-    websockify --web=/usr/share/novnc 10000 localhost:5900 && wait"]
+# Start xemu through noVNC and WebSockify
+CMD ["/usr/local/bin/start-xemu"]
