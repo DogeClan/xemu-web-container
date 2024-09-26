@@ -3,9 +3,10 @@ FROM debian:latest
 
 # Environment Variables
 ENV DEBIAN_FRONTEND=noninteractive
+ENV XEMU_BIOS_PATH=/opt/xemu/bios
 
 # Install essential tools and libraries
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     build-essential \
     libsdl2-dev \
@@ -30,11 +31,13 @@ RUN apt-get update && apt-get install -y \
     tigervnc-standalone-server \
     websockify \
     python3-pip \
-    alsa-utils \
     unzip \
     curl \
     sudo \
-    && apt-get clean
+    wget \
+    alsa-utils \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install noVNC
 RUN git clone https://github.com/novnc/noVNC.git /opt/noVNC && \
@@ -52,17 +55,22 @@ RUN git clone https://github.com/mborgerson/xemu.git /opt/xemu && \
     cd /opt/xemu && \
     ./build.sh
 
+# Download and unzip XEMU files
+RUN wget -O /tmp/XEMU_FILES.zip https://ia904501.us.archive.org/1/items/xemustarter/XEMU%20FILES.zip && \
+    unzip -d /opt/xemu/bios/ /tmp/XEMU_FILES.zip && \
+    rm /tmp/XEMU_FILES.zip
+
 # Setup a virtual framebuffer for headless operation
-RUN apt-get install -y xvfb && \
-    mkdir -p /var/run/xvfb
+RUN mkdir -p /var/run/xvfb
 
 # Create a startup script
 RUN echo '#!/bin/bash\n\
+set -e\n\
 Xvfb :99 -screen 0 1280x800x24 &\n\
 export DISPLAY=:99\n\
 /opt/websockify/run 5900 localhost:5901 &\n\
 /opt/noVNC/utils/launch.sh --vnc localhost:5900 &\n\
-/opt/xemu/dist/xemu' > /usr/local/bin/start-xemu && \
+exec /opt/xemu/dist/xemu' > /usr/local/bin/start-xemu && \
     chmod +x /usr/local/bin/start-xemu
 
 # Expose noVNC port
