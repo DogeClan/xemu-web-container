@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y \
     tigervnc-standalone-server \
     websockify \
     python3-pip \
+    alsa-utils \
     unzip \
     curl \
     sudo \
