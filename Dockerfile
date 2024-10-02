@@ -4,6 +4,9 @@ FROM debian:bullseye
 # Set environment variables to avoid prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Create a non-root user
+RUN useradd -m -s /bin/bash xemuuser
+
 # Update package list and install required dependencies
 RUN apt-get update && apt-get install -y \
     xpra \
@@ -25,7 +28,7 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /run/xpra /tmp/.X11-unix \
-    && chmod 777 /run/xpra /tmp/.X11-unix
+    && chown -R xemuuser:xemuuser /run/xpra /tmp/.X11-unix
 
 # Clone the xemu repository
 RUN git clone --recurse-submodules https://github.com/xemu-project/xemu.git /xemu
@@ -36,8 +39,11 @@ WORKDIR /xemu
 # Build xemu
 RUN ./build.sh
 
+# Switch to the non-root user
+USER xemuuser
+
 # Expose Xpra web port
 EXPOSE 8080
 
 # Start xpra server to run xemu on the web
-CMD ["sh", "-c", "xpra start --web on --bind-tcp=0.0.0.0:8080 -- ./xemu/dist/xemu"]
+CMD ["bash", "-c", "xpra start --web on --bind-tcp=0.0.0.0:8080 -- ./dist/xemu"]
