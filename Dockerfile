@@ -19,8 +19,13 @@ RUN apt-get update && apt-get install -y \
     ninja-build \
     python3-yaml \
     libslirp-dev \
+    python3-dbus \
+    python3-avahi \
+    python3-pyinotify \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /run/xpra /tmp/.X11-unix \
+    && chmod 777 /run/xpra /tmp/.X11-unix
 
 # Clone the xemu repository
 RUN git clone --recurse-submodules https://github.com/xemu-project/xemu.git /xemu
@@ -35,5 +40,4 @@ RUN ./build.sh
 EXPOSE 8080
 
 # Start xpra server to run xemu on the web
-# Make sure to replace "./path/to/xemu/executable" with the actual path of the built executable
-CMD ["xpra", "start", "--web", "on", "--bind-tcp=0.0.0.0:8080", "--", "./dist/xemu"]
+CMD ["sh", "-c", "xpra start --web on --bind-tcp=0.0.0.0:8080 -- ./xemu/dist/xemu"]
