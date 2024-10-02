@@ -35,4 +35,5 @@ RUN ./build.sh
 EXPOSE 8080
 
 # Start xpra server to run xemu on the web
-CMD ["xpra", "start", "--web", "on", "--bind-tcp=0.0.0.0:8080", "bash", "-c", "./path/to/xemu/executable"]
+# Make sure to replace "./path/to/xemu/executable" with the actual path of the built executable
+CMD ["xpra", "start", "--web", "on", "--bind-tcp=0.0.0.0:8080", "--", "./dist/xemu"]
