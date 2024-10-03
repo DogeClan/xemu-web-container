@@ -3,8 +3,28 @@ FROM debian:bullseye
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
+ENV GUACAMOLE_VERSION=1.4.0
+ENV XEMU_VERSION=latest
 
-# Update package list and install required packages, including CA certificates
+# Install necessary tools for adding repository and fetching packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    gnupg2 \
+    lsb-release \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Attempt to add the libjpeg-turbo repository and install the package
+RUN wget -q -O /etc/apt/trusted.gpg.d/libjpeg-turbo.gpg https://packagecloud.io/dcommander/libjpeg-turbo/gpgkey || \
+    echo "Failed to fetch GPG key, falling back to Debian repository" && \
+    echo "deb http://deb.debian.org/debian bullseye main contrib non-free" > /etc/apt/sources.list.d/debian.list
+
+# Update apt and install libjpeg-turbo from Debian repository
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libjpeg-turbo && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install other required packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     ca-certificates \
@@ -27,54 +47,76 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dbus \
     x11vnc \
     xvfb \
+    tomcat9 \
+    tomcat9-admin \
+    libtomcat9-java \
+    libpng-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone noVNC and websockify
-RUN git clone --depth 1 https://github.com/novnc/noVNC.git /usr/share/novnc && \
-    cd /usr/share/novnc && \
-    git submodule update --init --recursive 
+# Download and install Guacamole Server
+RUN curl -L https://apache.org/dyn/closer.cgi/guacamole/${GUACAMOLE_VERSION}/binary/guacamole-server-${GUACAMOLE_VERSION}.tar.gz -o guacamole-server.tar.gz && \
+    tar -xzf guacamole-server.tar.gz && \
+    cd guacamole-server-${GUACAMOLE_VERSION} && \
+    ./configure --with-init-dir=/etc/init.d && \
+    make && \
+    make install && \
+    ldconfig && \
+    cd .. && \
+    rm -rf guacamole-server-${GUACAMOLE_VERSION} guacamole-server.tar.gz
 
-# Clone xemu repository
+# Download and install Guacamole Client
+RUN curl -L https://apache.org/dyn/closer.cgi/guacamole/${GUACAMOLE_VERSION}/binary/guacamole.war -o /var/lib/tomcat9/webapps/guacamole.war
+
+# Configure Guacamole
+RUN mkdir -p /etc/guacamole && \
+    echo "guacamole.home: /etc/guacamole" > /etc/guacamole/guacamole.properties && \
+    echo "user-mapping: /etc/guacamole/user-mapping.xml" >> /etc/guacamole/guacamole.properties && \
+    cp /etc/guacamole/guacamole.properties /usr/share/tomcat9/.guacamole/
+
+# Create an example user mapping file
+RUN echo '<?xml version="1.0" encoding="UTF-8"?>\n\
+<user-mapping>\n\
+    <authorize username="user" password="password">\n\
+        <connection>\n\
+            <name>Xemu Emulator</name>\n\
+            <protocol>vnc</protocol>\n\
+            <param name="hostname">localhost</param>\n\
+            <param name="port">5901</param>\n\
+            <param name="width">1280</param>\n\
+            <param name="height">720</param>\n\
+        </connection>\n\
+    </authorize>\n\
+</user-mapping>' > /etc/guacamole/user-mapping.xml
+
+# Clone xemu repository and build it
 RUN git clone --depth 1 https://github.com/xemu-project/xemu.git /xemu && \
     cd /xemu && \
     ./build.sh
 
-# Create a placeholder CD-ROM image
+# Create a placeholder CD-ROM image (for example)
 RUN dd if=/dev/zero of=/xemu/image.iso bs=1M count=1 && \
     echo "Placeholder CD-ROM image created."
 
-# Create start script
+# Create start script for Xemu and VNC server
 RUN echo '#!/bin/bash\n\n\
-# Remove any residual Xvfb instances if running\necho "Stopping any running Xvfb and x11vnc instances..."\npkill Xvfb\npkill x11vnc\n\n\
 # Start Xvfb in the background\n\
 Xvfb :1 -screen 0 1280x720x24 &\n\
 sleep 2  # Give Xvfb time to start\n\
 \n\
-# Set the DISPLAY variable for xemu\n\
+# Set the DISPLAY variable for Xemu\n\
 export DISPLAY=:1\n\
 \n\
-# Start x11vnc to export the Xvfb display to VNC with some additional options\n\
-x11vnc -display :1 -nopw -forever -ncache 10 -noxdamage -listen localhost -rfbport 54321 &\n\
+# Start x11vnc to export the Xvfb display to VNC\n\
+x11vnc -display :1 -nopw -forever -ncache 10 -noxdamage -listen localhost -rfbport 5901 &\n\
 \n\
-# Create a path to the CD-ROM image\n\
-CD_IMAGE="/xemu/image.iso"  # Ensure this corresponds to your valid ISO\n\
-\n\
-# Start xemu (make sure to configure here according to your requirements)\n\
+# Start Xemu\n\
 cd /xemu && ./dist/xemu -machine xbox,kernel-irqchip=off,avpack=hdtv \\\n\
     -device smbus-storage,file=/root/.local/share/xemu/xemu/eeprom.bin \\\n\
-    -m 64 -drive index=1,media=cdrom,file=${CD_IMAGE} -display vnc:null\n\
-\n\
-# Start noVNC with a longer timeout\n\
-websockify --web=/usr/share/novnc 6080 localhost:54321 --timeout=3600 &\n\
-\n\
-# Keep the script running\n\
-wait -n' > /start.sh && chmod +x /start.sh
+    -m 64 -drive index=1,media=cdrom,file=/xemu/image.iso -display vnc:null\n\
+' > /start.sh && chmod +x /start.sh
 
-# Set the working directory
-WORKDIR /usr/share/novnc
+# Expose necessary ports
+EXPOSE 8080 5901
 
-# Expose the noVNC port
-EXPOSE 6080
-
-# Run the application
-CMD ["/start.sh"]
+# Start services
+CMD ["sh", "-c", "/usr/share/tomcat9/bin/catalina.sh run & /start.sh"]
