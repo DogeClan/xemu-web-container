@@ -4,9 +4,10 @@ FROM debian:bullseye
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Update package list and install required packages
+# Update package list and install required packages, including CA certificates
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    ca-certificates \
     websockify \
     build-essential \
     libsdl2-dev \
@@ -24,7 +25,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pyinotify \
     python3-uinput \
     dbus \
-    libgtk-3-0 \
     x11vnc \
     xvfb \
     && rm -rf /var/lib/apt/lists/*
@@ -45,6 +45,7 @@ RUN dd if=/dev/zero of=/xemu/image.iso bs=1M count=1 && \
 
 # Create start script
 RUN echo '#!/bin/bash\n\n\
+# Remove any residual Xvfb instances if running\necho "Stopping any running Xvfb and x11vnc instances..."\npkill Xvfb\npkill x11vnc\n\n\
 # Start Xvfb in the background\n\
 Xvfb :1 -screen 0 1280x720x24 &\n\
 sleep 2  # Give Xvfb time to start\n\
@@ -52,8 +53,8 @@ sleep 2  # Give Xvfb time to start\n\
 # Set the DISPLAY variable for xemu\n\
 export DISPLAY=:1\n\
 \n\
-# Start x11vnc to export the Xvfb display to VNC\n\
-x11vnc -display :1 -nopw -forever -many -listen localhost -rfbport 54321 -ncache 10 &\n\
+# Start x11vnc to export the Xvfb display to VNC with some additional options\n\
+x11vnc -display :1 -nopw -forever -ncache 10 -noxdamage -listen localhost -rfbport 54321 &\n\
 \n\
 # Create a path to the CD-ROM image\n\
 CD_IMAGE="/xemu/image.iso"  # Ensure this corresponds to your valid ISO\n\
@@ -61,7 +62,7 @@ CD_IMAGE="/xemu/image.iso"  # Ensure this corresponds to your valid ISO\n\
 # Start xemu (make sure to configure here according to your requirements)\n\
 cd /xemu && ./dist/xemu -machine xbox,kernel-irqchip=off,avpack=hdtv \\\n\
     -device smbus-storage,file=/root/.local/share/xemu/xemu/eeprom.bin \\\n\
-    -m 64 -drive index=1,media=cdrom,file=${CD_IMAGE} -display vnc,null\n\
+    -m 64 -drive index=1,media=cdrom,file=${CD_IMAGE} -display vnc:null\n\
 \n\
 # Start noVNC with a longer timeout\n\
 websockify --web=/usr/share/novnc 6080 localhost:54321 --timeout=3600 &\n\
