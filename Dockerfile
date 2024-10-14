@@ -20,9 +20,9 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     python3-yaml \
+    libvncserver-dev \
     libslirp-dev \
     xvfb \
-    x11vnc \
     net-tools \
     wget \
     && rm -rf /var/lib/apt/lists/*
@@ -44,7 +44,7 @@ WORKDIR /noVNC
 # Expose the WebSocket port for Websockify and noVNC
 EXPOSE 8080
 
-# Run xemu with noVNC and Websockify on Render
-CMD xvfb-run --server-args='-screen 0 1024x768x24' /xemu/dist/xemu -display gtk -no-audio -vnc :1 & \
+# Run xemu without VNC and start websockify
+CMD xvfb-run --server-args='-screen 0 1024x768x24' /xemu/dist/xemu -display gtk & \
     sleep 5 && \
     websockify 8080 localhost:5901 --web /noVNC
