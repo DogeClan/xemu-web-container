@@ -5,7 +5,6 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NOVNC_VERSION=1.3.0
 ENV WEBSOCKIFY_VERSION=0.10.0
-ENV XEMU_VERSION=latest
 
 # Install required packages and dependencies
 RUN apt-get update && apt-get install -y \
@@ -36,15 +35,20 @@ RUN git clone --recurse-submodules https://github.com/xemu-project/xemu.git /xem
 
 # Clone noVNC and Websockify
 RUN git clone https://github.com/novnc/noVNC.git /noVNC && \
-    git clone https://github.com/novnc/websockify.git /websockify && \
-    cd /websockify && \
+    git clone https://github.com/novnc/websockify.git /noVNC/utils/websockify && \
+    cd /noVNC && \
+    git checkout v$NOVNC_VERSION && \
+    cd utils/websockify && \
+    git checkout v$WEBSOCKIFY_VERSION && \
     pip3 install websocket-client
 
-# Expose the WebSocket port for Websockify and noVNC
-EXPOSE 6080
-EXPOSE 5901
+# Set the working directory for noVNC
+WORKDIR /noVNC
 
-# Start the xemu VNC server and Websockify
-CMD ["sh", "-c", "xvfb-run --server-args='-screen 0 1024x768x24' ./xemu/dist/xemu -display gtk -no-audio -vga std -m 256M -vnc :1 & \
-                  sleep 2 && \
-                  python3 /websockify/websockify.py --web=/noVNC 6080 localhost:5901"]
+# Expose the WebSocket port for Websockify and noVNC
+EXPOSE 8080
+
+# Run xemu with noVNC and Websockify on Render
+CMD xvfb-run --server-args='-screen 0 1024x768x24' /xemu/dist/xemu -display gtk -no-audio -vnc :1 & \
+    sleep 5 && \
+    ./utils/launch.sh --vnc localhost:5901 --listen 8080 --web /noVNC
