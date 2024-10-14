@@ -51,4 +51,4 @@ EXPOSE 8080
 # Run xemu with noVNC and Websockify on Render
 CMD xvfb-run --server-args='-screen 0 1024x768x24' /xemu/dist/xemu -display gtk -no-audio -vnc :1 & \
     sleep 5 && \
-    ./utils/launch.sh --vnc localhost:5901 --listen 8080 --web /noVNC
+    python3 /noVNC/utils/websockify/websockify.py --web /noVNC 8080 localhost:5901
