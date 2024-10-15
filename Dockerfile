@@ -27,10 +27,10 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone and build xemu emulator
+# Clone and build xemu emulator with VNC support
 RUN git clone --recurse-submodules https://github.com/xemu-project/xemu.git /xemu && \
     cd /xemu && \
-    ./build.sh
+    ./build.sh --enable-vnc
 
 # Clone noVNC and install websockify via pip
 RUN git clone https://github.com/novnc/noVNC.git /noVNC && \
@@ -38,13 +38,8 @@ RUN git clone https://github.com/novnc/noVNC.git /noVNC && \
     git checkout v$NOVNC_VERSION && \
     pip3 install websockify websocket-client
 
-# Set the working directory for noVNC
-WORKDIR /noVNC
-
 # Expose the WebSocket port for Websockify and noVNC
 EXPOSE 8080
 
-# Run xemu without VNC and start websockify
-CMD xvfb-run --server-args='-screen 0 1024x768x24' /xemu/dist/xemu -display gtk & \
-    sleep 5 && \
-    websockify 8080 localhost:5901 --web /noVNC
+# Set entrypoint to start xemu and websockify
+CMD ["/bin/bash", "-c", "xvfb-run --server-args='-screen 0 1024x768x24' /xemu/dist/xemu -display gtk & sleep 5 && websockify 8080 localhost:5901 --web /noVNC"]
