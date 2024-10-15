@@ -41,5 +41,5 @@ RUN git clone https://github.com/novnc/noVNC.git /noVNC && \
 # Expose the WebSocket port for Websockify and noVNC
 EXPOSE 8080
 
-# Set entrypoint to start xemu and websockify
-CMD ["/bin/bash", "-c", "xvfb-run --server-args='-screen 0 1024x768x24' /xemu/dist/xemu -display vnc=:0 & sleep 5 && websockify 8080 localhost:5900 --web /noVNC"]
+# Set entrypoint to start xemu and 
+CMD ["/bin/bash", "-c", "xvfb-run --server-args='-screen 0 1024x768x24' /xemu/dist/xemu -display vnc=:0 -audiodev null,id=snd0 & sleep 5 && websockify 8080 localhost:5900 --web /noVNC"]
