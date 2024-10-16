@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Clone and build xemu emulator without audio support
 RUN git clone --recurse-submodules https://github.com/xemu-project/xemu.git /xemu && \
     cd /xemu && \
-    ./build.sh --enable-vnc --disable-audio
+    DISABLE_AUDIO=1 ./build.sh --enable-vnc
 
 # Clone noVNC and install websockify via pip
 RUN git clone https://github.com/novnc/noVNC.git /noVNC && \
