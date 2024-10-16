@@ -1,9 +1,10 @@
 # Use a base image with a minimal installation of Ubuntu
 FROM ubuntu:22.04
 
-# Set environment variables for non-interactive installation
+# Set environment variables for non-interactive installation and disable audio
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NOVNC_VERSION=1.3.0
+ENV SDL_AUDIODRIVER=dummy
 
 # Install required packages and dependencies
 RUN apt-get update && apt-get install -y \
