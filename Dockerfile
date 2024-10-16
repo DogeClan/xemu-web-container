@@ -25,7 +25,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
     net-tools \
     wget \
+    pulseaudio \
     && rm -rf /var/lib/apt/lists/*
+
+# Disable PulseAudio by configuring it to not start and setting up environment to ignore audio
+RUN echo "autospawn = no" >> /etc/pulse/client.conf && \
+    echo "daemon-binary = /bin/true" >> /etc/pulse/client.conf && \
+    pulseaudio --kill
 
 # Clone and build xemu emulator without audio support
 RUN git clone --recurse-submodules https://github.com/xemu-project/xemu.git /xemu && \
@@ -41,5 +47,5 @@ RUN git clone https://github.com/novnc/noVNC.git /noVNC && \
 # Expose the WebSocket port for Websockify and noVNC
 EXPOSE 8080
 
-# Set entrypoint to start xemu and bind to the dynamically assigned port.
+# Set entrypoint to start xemu with no audio and bind to the dynamically assigned port.
 CMD ["bash", "-c", "xvfb-run --server-args='-screen 0 1024x768x24' /xemu/dist/xemu -display vnc=:0 -audiodev none & sleep 5 && websockify 8080 localhost:5900 --web /noVNC"]
