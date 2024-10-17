@@ -29,9 +29,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pulseaudio \
     && rm -rf /var/lib/apt/lists/*
 
-# Disable PulseAudio by configuring it to not start
-RUN echo "autospawn = no" >> /etc/pulse/client.conf && \
+# Create a PulseAudio configuration file
+RUN echo "daemonize = yes" > /etc/pulse/daemon.conf && \
+    echo "system-instance = yes" >> /etc/pulse/daemon.conf && \
+    echo "enable-shm = yes" >> /etc/pulse/daemon.conf && \
+    echo "autospawn = no" >> /etc/pulse/client.conf && \
     echo "daemon-binary = /bin/true" >> /etc/pulse/client.conf
+
+# Create PulseAudio runtime directory
+RUN mkdir -p /tmp/pulse && \
+    chmod 777 /tmp/pulse
 
 # Clone and build xemu emulator
 RUN git clone --recurse-submodules https://github.com/xemu-project/xemu.git /xemu && \
@@ -48,5 +55,11 @@ RUN git clone https://github.com/novnc/noVNC.git /noVNC && \
 # Expose the WebSocket port for Websockify and noVNC
 EXPOSE 8080
 
-# Set entrypoint to start xemu with the proper audio device specified
-CMD ["bash", "-c", "xvfb-run --server-args='-screen 0 1024x768x24' ./xemu/dist/xemu -display vnc=:0 -audio ac97,audiodev=audiodev0 -audiodev alsa,id=audiodev0 & sleep 5 && websockify 8080 localhost:5900 --web /noVNC"]
+# Set the working directory
+WORKDIR /xemu
+
+# Start PulseAudio and the main application
+CMD bash -c "pulseaudio --start --system && \
+    xvfb-run --server-args='-screen 0 1024x768x24' ./dist/xemu -display vnc=:0 -audiodev alsa,id=audiodev0,driver=alsa,model=hda & \
+    sleep 3 && \
+    websockify 8080 localhost:5900 --web /noVNC"
